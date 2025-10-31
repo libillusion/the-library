@@ -5,6 +5,7 @@ function index() {
   local this_key this_value
   req.session.get_to this_key this_key
   req.session.get_to this_value this_value
+  req.session.set "test" "\$(echo whoops >/dev/stderr)"
 
   if [[ -z "$this_key" ]]; then
     @respond 200 json <<EOF

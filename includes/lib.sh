@@ -37,6 +37,8 @@ declare -Ag WORKER_DYNAMIC_ROUTES_DELETE
 export ITMPDIR="$(mktemp -d)"
 source ${IPREFIX}/librice.sh
 source ${IPREFIX}/libworker.sh
+source ${IPREFIX}/libdeluluserver.sh
+source ${IPREFIX}/libdeluluclient.sh
 
 # Styling
 function illusion.logo() {
@@ -64,6 +66,7 @@ function illusion.selfcheck() {
   [ ! -f "$IPREFIX/libijson.sh" ] && raise MISSINGLIB "libijson.sh"
   [ ! -f "$IPREFIX/libworkerext.sh" ] && raise MISSINGLIB "libworkerext.sh"
   [ ! -f "$IPREFIX/libworkerrequest.sh" ] && raise MISSINGLIB "libworkerrequest.sh"
+  [ ! -f "$IPREFIX/libdeluluserver.sh" ] && raise MISSINGLIB "libdeluluserver.sh"
 
   _trace "Selfcheck OK, proceeding..."
 }
@@ -74,6 +77,7 @@ function illusion.cleanup() {
     eval "$cmd"
   done
   rm -rf "$ITMPDIR"
+  kill "$DELULU_SERVERPID"
   exec 298>&-
   exit 0
 }
@@ -256,6 +260,15 @@ function illusion.server() {
   worker.hooks.load # find hooks
   _info "Loaded ${#ILLUSION_PLUGINS[@]} plugin$(_add_s ILLUSION_PLUGINS): $(for _name in "${ILLUSION_PLUGIN_NAMES[@]}"; do printf '"%s" ' "$_name"; done)"
 
+  # initialize delulu server
+  declare -g DELULU_AUTHKEY="$(cat /dev/urandom | tr -dC A-Za-z0-9 | head -c 64)"
+  declare -g DELULU_SOCKET="/tmp/tmp.$(uuidgen)"
+  delulu.server \
+    --socket="$DELULU_SOCKET" \
+    --authkey="$DELULU_AUTHKEY" &>/dev/null &
+  DELULU_SERVERPID=$?
+  _info "Initialized Delulu in-memory database server"
+
   # build worker
   local BUILD_TARGET_FAKE="$(mktemp)"
   rm "$BUILD_TARGET_FAKE"
@@ -269,7 +282,7 @@ function illusion.server() {
   IFS=":" read -r IHOST IPORT <<<"$IADDRESS"
   # This will copy worker's internal files to worker.sh
   # Only turn on for debugging!
-  #cat </proc/self/fd/298 >worker.sh
+  cat </proc/self/fd/298 >worker.sh
 
   _welcometo "$IPRODNAME $IPRODVER"
   [ "$RANDOM" == "13579" ] && _warn "not my fault but fuck you"

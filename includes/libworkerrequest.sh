@@ -9,21 +9,14 @@ req.session.get() {
 
 req.session.get_to() {
   [ -z "$2" ] && return 1
-  local -n output="$1"
-  output="${REQ_SESSION_DB["${2}"]}"
+  local -n _output="$1"
+  delulu.request GET "session_${REQ_SESSION_ID}_${2}"
+  _output="$_DELULU_RESPONSE"
 }
 
 req.session.set() {
-  local DATA="${REQ_SESSION_DB["${1}"]:-""}"
-  [[ "$DATA" == "$2" ]] && return
-  worker.db.eval "wdb_${REQ_SESSION_ID}[\"${1//\"/\\\"}\"]=\"${2//\"/\\\"}\""
-}
-
-req.session.create() {
-  [ -z "$1" ] && return 1
-  if ! worker.db.exists "$1"; then
-    worker.db.create "wdb_$1"
-  fi
+  [ -z "$2" ] && return 1
+  delulu.request SET "session_${REQ_SESSION_ID}_${1}" "${2}"
 }
 
 # function aliases

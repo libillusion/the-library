@@ -1,61 +1,87 @@
 # The Delusional Database
 delulu.instance() {
-  DELULU_SOCKET="${DELULU_SOCKET:-/tmp/delulu.sock}" 
-  DELULU_AUTHKEY="null"
+  DELULU_SOCKET="${DELULU_SOCKET:-/tmp/delulu.sock}"
   rm -f "$DELULU_SOCKET"
   mkfifo "$DELULU_SOCKET"
+  echo "Started Delulu Server (listening on $DELULU_SOCKET)"
 
-  # wait for initialization
-  while read -r cmd value <"$DELULU_SOCKET"; do
-    case "$cmd" in
+  send() {
+    printf '%s\n' "$1" >"$client_pipe"
+    #echo "$1"
+  }
+
+  ok() {
+    send "ok: $1"
+  }
+
+  err() {
+    send "err: $1"
+  }
+
+  if [[ "$DELULU_AUTHKEY" == "null" ]] || [[ -z "$DELULU_AUTHKEY" ]]; then
+    # wait for initialization
+    while read -r client_pipe cmd value <"$DELULU_SOCKET"; do
+      case "$cmd" in
       kill)
         exit
         ;;
       init)
         DELULU_AUTHKEY="$value"
-        echo "auth: init ok"
+        send "auth: init ok"
         break
         ;;
       *)
-        echo "$cmd $value"
-        break
+        err "invalid operation"
+        echo "client-exec: $cmd $value"
         ;;
-    esac
-  done
+      esac
+    done
+  fi
 
   declare -A DB # very good
-  while read -r \
+  while read \
     auth_segment client_pipe \
     cmd key value <"$DELULU_SOCKET"; do
+
+    echo "Received operation $cmd"
 
     if [[ "$auth_segment" != "AUTH=$DELULU_AUTHKEY" ]]; then
       echo "err: auth failed" >"$client_pipe"
       continue
     fi
- 
+
     case "$cmd" in
-      SET)
-        DB["$key"]="$value"
-        echo "ok: set ok" >"$client_pipe"
-        ;;
-      GET)
-        if [[ -v "${DB["$key"]}" ]]; then
-          printf 'ok: %s\n' "${DB["$key"]}" >"$client_pipe"
-        else
-          echo "err: key not found" >"$client_pipe"
-        fi
-        ;;
-      DUMP)
-        printf "ok: " >"$client_pipe"
-        declare -p DB >"$client_pipe"
-        ;;
+    SET)
+      DB["$key"]="$value"
+      ok "set ok"
+      ;;
+    GET)
+      if [[ -v DB["$key"] ]]; then
+        ok "${DB["$key"]}"
+      else
+        err "key not found"
+      fi
+      ;;
+    DUMP)
+      if [[ "${#DB[@]}" -lt 1 ]]; then
+        ok "database empty"
+      else
+        declaration=$(declare -p DB)
+        declaration=${declaration#*=}
+        printf "ok: $declaration" >"$client_pipe"
+      fi
+      ;;
+    *)
+      echo hi
+      err "invalid operation"
+      ;;
     esac
   done
 }
 
 delulu.server() {
   # consts
-  local DELULU_SOCKET="/tmp/delulu.sock" \
+  local DELULU_SOCKET="${DELULU_SOCKET:-/tmp/delulu.sock}" \
     DELULU_FORCE=false
 
   # parsing arguments
@@ -68,6 +94,9 @@ delulu.server() {
       -f | --force)
         DELULU_FORCE
         ;;
+      -a | --authkey)
+        DELULU_AUTHKEY="${i#*=}"
+        ;;
       esac
     done
   done
@@ -78,13 +107,16 @@ delulu.server() {
       rm -f "$DELULU_SOCKET"
     else
       raise INVALIDCONF "Delulu socket already exists in $DELULU_SOCKET."
+    fi
   fi
 
-  # Exclusively using the 296 lock. 
+  # Exclusively using the 296 lock.
   local DELULU_OUTFILE=$(mktemp)
   exec 296<>"$DELULU_OUTFILE"
   rm "$DELULU_OUTFILE"
 
-  export DELULU_SOCKET
-  define -f delulu.instance | sed '1,2d;$d' >&296
+  echo "DELULU_SOCKET=\"$DELULU_SOCKET\"" >&296
+  echo "DELULU_AUTHKEY=\"$DELULU_AUTHKEY\"" >&296
+  declare -f delulu.instance | sed '1,2d;$d' >&296
+  /usr/bin/env bash /proc/self/fd/296
 }
