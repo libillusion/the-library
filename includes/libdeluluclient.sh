@@ -6,9 +6,9 @@ delulu.request() {
 
   local cmd="${1// /_}"
   shift
-  local key="${1// /_}"
+  local key="${1// /'\space'}"
   shift
-  local value="${1// /_}"
+  local value="${1}"
 
   #    authkey                 clientpipe *cmd, key, value
   echo "AUTH=${DELULU_AUTHKEY} ${_target} $cmd $key $value" >"$DELULU_SOCKET"
