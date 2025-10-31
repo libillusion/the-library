@@ -169,6 +169,8 @@ Available options:
   -b | --backend  <binary>      | Specify backend (socat, ncat) (default: socat)
   -l | --plugin   <path>        | Add a plugin
        --nologo                 | Disables logo printing
+       --nowelcome              | Disables welcome prompt
+       --nobranding             | Disables branding entirely
 
 Server Routing:
   --option="[path]->[function]"
@@ -234,6 +236,15 @@ function illusion.server() {
         ILLUSION_NOLOGO=1
         shift
         ;;
+      --nowelcome)
+        ILLUSIOON_NOWELCOME=1
+        shift
+        ;;
+      --nobranding)
+        ILLUSION_NOLOGO=1
+        ILLUSION_NOWELCOME=1
+        shift
+        ;;
       *)
         echo "Invalid argument: $i"
         illusion.init::help
@@ -294,7 +305,7 @@ function illusion.server() {
   # get address
   IFS=":" read -r IHOST IPORT <<<"$IADDRESS"
 
-  _welcometo "$IPRODNAME $IPRODVER"
+  [[ "$ILLUSION_NOWELCOME" == "1" ]] && _welcometo "$IPRODNAME $IPRODVER"
   [ "$RANDOM" == "13579" ] && _warn "not my fault but fuck you"
   _info "Initialized in ${CBCyan}$(awk "BEGIN { print $(($(date +%s%N) - $bench_start)) / 1000000 }")${CReset} ms."
   unset bench_start
