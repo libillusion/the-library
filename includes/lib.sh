@@ -282,7 +282,7 @@ function illusion.server() {
   IFS=":" read -r IHOST IPORT <<<"$IADDRESS"
   # This will copy worker's internal files to worker.sh
   # Only turn on for debugging!
-  cat </proc/self/fd/298 >worker.sh
+  # cat </proc/self/fd/298 >worker.sh
 
   _welcometo "$IPRODNAME $IPRODVER"
   [ "$RANDOM" == "13579" ] && _warn "not my fault but fuck you"
