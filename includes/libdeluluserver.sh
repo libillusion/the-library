@@ -69,8 +69,25 @@ delulu.instance() {
         declaration=$(declare -p DB)
         declaration=${declaration#*=}
         printf "ok: $declaration" >"$client_pipe"
+        declaration=""
       fi
       ;;
+    DUMP_KEYS)
+      if [[ "${#DB[@]}" -lt 1 ]]; then
+        ok "database empty"
+      else
+        keys="${!DB[@]}"
+        printf "ok: $keys" >"$client_pipe"
+        keys=""
+      fi
+      ;;
+    COUNT)
+      ok "${#DB[@]}"
+      ;;
+    MEMORY)
+      ok "$(awk '{ printf "%.2f\n", $2 * 4096 / 1024 / 1024 }' /proc/self/statm)MB"
+      ;;
+
     *)
       echo hi
       err "invalid operation"

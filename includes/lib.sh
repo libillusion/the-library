@@ -38,7 +38,6 @@ export ITMPDIR="$(mktemp -d)"
 source ${IPREFIX}/librice.sh
 source ${IPREFIX}/libworker.sh
 source ${IPREFIX}/libdeluluserver.sh
-source ${IPREFIX}/libdeluluclient.sh
 
 # Styling
 function illusion.logo() {

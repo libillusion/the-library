@@ -1,9 +1,11 @@
 # Client wrapper for libworkerdb.
+DELULU_CLIENT_SOCK="${ITMPDIR:-/tmp}/tmp.$(uuidgen)" DELULU_SOCKET="${DELULU_SOCKET:-/tmp/delulu.sock}"
+mkfifo "$DELULU_CLIENT_SOCK"
+
 delulu.request() {
   _DELULU_RESPONSE=""
-  local _target="/tmp/tmp.$(uuidgen)" DELULU_SOCKET="${DELULU_SOCKET:-/tmp/delulu.sock}"
-  mkfifo "$_target"
 
+  # creating resp lock
   local cmd="${1// /_}"
   shift
   local key="${1// /'\space'}"
@@ -11,8 +13,8 @@ delulu.request() {
   local value="${1}"
 
   #    authkey                 clientpipe *cmd, key, value
-  echo "AUTH=${DELULU_AUTHKEY} ${_target} $cmd $key $value" >"$DELULU_SOCKET"
-  read -r _DELULU_RESPONSE_RAW <"$_target"
+  echo "AUTH=${DELULU_AUTHKEY} ${DELULU_CLIENT_SOCK} $cmd $key $value" >"$DELULU_SOCKET"
+  read -r _DELULU_RESPONSE_RAW <"$DELULU_CLIENT_SOCK"
   case "$_DELULU_RESPONSE_RAW" in
   "ok:"*)
     IFS=": " read -r _ _DELULU_RESPONSE <<<"$_DELULU_RESPONSE_RAW"
@@ -22,6 +24,7 @@ delulu.request() {
     return 1
     ;;
   esac
+
 }
 
 delulu.request.send() {
