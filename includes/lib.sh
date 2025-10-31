@@ -77,7 +77,7 @@ function illusion.cleanup() {
     eval "$cmd"
   done
   rm -rf "$ITMPDIR"
-  kill "$DELULU_SERVERPID"
+  kill -9 "$DELULU_SERVERPID" &>/dev/null
   exec 298>&-
   exit 0
 }

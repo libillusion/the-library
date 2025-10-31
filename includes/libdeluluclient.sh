@@ -9,7 +9,7 @@ delulu.request() {
   read -r _DELULU_RESPONSE_RAW <"$_target"
   case "$_DELULU_RESPONSE_RAW" in
   "ok:"*)
-    IFS=":" read -r _ _DELULU_RESPONSE <<<"$_DELULU_RESPONSE_RAW"
+    IFS=": " read -r _ _DELULU_RESPONSE <<<"$_DELULU_RESPONSE_RAW"
     return 0
     ;;
   *)
