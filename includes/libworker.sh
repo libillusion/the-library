@@ -284,7 +284,7 @@ worker.process_request_data() {
   if [[ "${REQ_COOKIES["X-Illusion-Session"]}" == "" ]]; then
     REQ_SESSION_ID="$(uuidgen)"
   else
-    REQ_SESSION_ID="${REQ_COOKIES["X-Illusion-Session"]}"
+    REQ_SESSION_ID="${REQ_COOKIES["X-Illusion-Session"]// /_}"
   fi
   REQ_COOKIE_TO_SEND["X-Illusion-Session"]="$REQ_SESSION_ID"
 

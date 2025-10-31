@@ -275,14 +275,16 @@ function illusion.server() {
   exec 298<>"$BUILD_TARGET_FAKE"
   worker.build_to "/proc/self/fd/298"
 
+  # only use for debugging!!!
+  if [[ "$ILLUSION_WARNING_EXPORT_TO_BUILDER_DOT_SH" == 1 ]]; then
+    cat </proc/self/fd/298 >worker.sh
+  fi
+
   # run initialization (if exist)
   declare -F illusion.server.init &>/dev/null && illusion.server.init
 
   # get address
   IFS=":" read -r IHOST IPORT <<<"$IADDRESS"
-  # This will copy worker's internal files to worker.sh
-  # Only turn on for debugging!
-  # cat </proc/self/fd/298 >worker.sh
 
   _welcometo "$IPRODNAME $IPRODVER"
   [ "$RANDOM" == "13579" ] && _warn "not my fault but fuck you"

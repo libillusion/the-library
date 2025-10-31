@@ -18,6 +18,11 @@ delulu.request() {
   esac
 }
 
+delulu.request.send() {
+  delulu.request $@
+  echo "$_DELULU_RESPONSE_RAW"
+}
+
 # debugging
 delulu.request.raw() {
   local _target="/tmp/tmp.$(uuidgen)" DELULU_SOCKET="${DELULU_SOCKET:-/tmp/delulu.sock}"
