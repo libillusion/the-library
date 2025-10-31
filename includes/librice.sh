@@ -75,9 +75,9 @@ COn_IWhite='\033[0;107m'  # White
 # <-- EXTENSIONS -->
 ERR_MISSINGARG="MissingArgument"
 ERR_INVALIDARG="InvalidArgument"
+ERR_INVALIDCONF="InvalidConfiguration"
+ERR_MISSINGLIB="MissingLibrary"
 _fmt_raise() {
-  local ERROR="$1"
-  shift
   echo -e "${CBRed}${ERROR}${CReset}${CBWhite}: ${CReset}${@}"
 }
 
@@ -99,8 +99,13 @@ _fmt_bash_stdin() {
   local i
   if [[ "$1" == "-" ]]; then
     i="$((${2} - $(echo "$lines" | wc -l)))"
-  else
+  elif [[ "$1" == "+" ]]; then
     i="$((${2} + 1))"
+  elif [[ "$1" == "THIS_LINE" ]]; then
+    for _ in $(seq 0 "$((${longest_mid:-0} - ${#i}))"); do printf ' '; done
+    echo -ne "${CBRed}> ${2}  | ${line}"
+    cat <<<"$lines"
+    return
   fi
   [ -n "$3" ] && longest_mid="${#3}"
 
@@ -112,32 +117,48 @@ _fmt_bash_stdin() {
 }
 
 raise() {
-  local LINENUM="${BASH_LINENO[1]}"
-  [[ "$LINENUM" == "0" ]] && LINENUM="${BASH_LINENO[0]}"
-  local SOURCEFILE=$([ -z "${BASH_SOURCE[1]}" ] && echo "$0" || echo "${BASH_SOURCE[1]}")
-  local ERROR="$1"
+  declare -n ERROR="$1"
+  [ -z "$ERROR" ] && declare -n ERROR="ERR_$1"
   shift
 
-  exec >&2
-  echo -e "\nTraceback on line ${CBRed}${LINENUM}${CReset} in ${CBCyan}${SOURCEFILE}${CReset}:\n${CYellow}=================================${CReset}"
-  local lines
-  local MAXVAL=$(($LINENUM + 3))
-  if [[ "$LINENUM" != 1 ]]; then
-    # Get last 2 lines
-    sed -n "$(($((${LINENUM} - 3)) >= 1 ? $((${LINENUM} - 3)) : 1)),$(($((${LINENUM} - 1)) >= 1 ? $((${LINENUM} - 1)) : 1))p" "$SOURCEFILE" | _fmt_bash_stdin - ${LINENUM} $((${LINENUM} + 3))
-  fi
-  for _ in $(seq 0 "${#MAXVAL}"); do printf ' '; done
-  echo -ne "${CBRed}~>>>  ${CReset}"
-  sed -n "${LINENUM}p" "$SOURCEFILE"
-  sed -n "$((${LINENUM} + 1)),$((${LINENUM} + 3))p" "$SOURCEFILE" | _fmt_bash_stdin + ${LINENUM} $((${LINENUM} + 3))
-  echo -e "${CYellow}=================================${CReset}"
+  print_trace_src() {
+    local LINENUM="$(("${#BASH_LINENO[@]}" - "${1}" - 1))"
+    LINENUM="${BASH_LINENO["$LINENUM"]}"
+    local SOURCEFILE="$(("${#BASH_SOURCE[@]}" - "${1}"))"
+    SOURCEFILE="${BASH_SOURCE["$SOURCEFILE"]}"
+    [[ "$SOURCEFILE" == "${BASH_SOURCE[0]}" ]] && return
+
+    exec >&2
+    echo -e "${CBWhite}Traceback${CReset} on line ${CBYellow}${LINENUM}${CReset} in ${CBPurple}${SOURCEFILE}${CReset}:"
+    local lines
+    local MAXVAL=$(($LINENUM + 3))
+    if [[ "$LINENUM" != 1 ]]; then
+      # Get last 2 lines
+      sed -n "$(($((${LINENUM} - 3)) >= 1 ? $((${LINENUM} - 3)) : 1)),$(($((${LINENUM} - 1)) >= 1 ? $((${LINENUM} - 1)) : 1))p" "$SOURCEFILE" | _fmt_bash_stdin - ${LINENUM} $((${LINENUM} + 3))
+    fi
+    sed -n "${LINENUM}p" "$SOURCEFILE" | _fmt_bash_stdin THIS_LINE "$LINENUM"
+    sed -n "$((${LINENUM} + 1)),$((${LINENUM} + 3))p" "$SOURCEFILE" | _fmt_bash_stdin + ${LINENUM} $((${LINENUM} + 3))
+  }
+
+  echo
+  echo -e "${CBRed}======================== FATAL ERROR ========================"
+  echo -e "${CBCyan}:( An exception has occured, and the program cannot continue."
+  echo -e "${CBRed}============================================================="
+  print_trace_src 1
+  print_trace_src 2
 
   case "$ERROR" in
   "$ERR_MISSINGARG")
-    _fmt_raise "$ERR_MISSINGARG" "Function ${CBGreen}${FUNCNAME[1]}${CReset} requires argument ${CBCyan}\"$1\"${CReset}."
+    _fmt_raise "Function ${CBGreen}${FUNCNAME[1]}${CReset} requires argument ${CBCyan}\"$1\"${CReset}."
     ;;
   "$ERR_INVALIDARG")
-    _fmt_raise "${ERR_INVALIDARG}" "Function ${CBGreen}${FUNCNAME[1]}${CReset} contains invalid argument ${CBCyan}\"${1}\"${CReset}."
+    _fmt_raise "Function ${CBGreen}${FUNCNAME[1]}${CReset} contains invalid argument ${CBCyan}\"${1}\"${CReset}."
+    ;;
+  "$ERR_MISSINGLIB")
+    _fmt_raise "Missing library ${CBCyan}${1}${CReset}. Cannot proceed."
+    ;;
+  *)
+    _fmt_raise "${1}"
     ;;
   esac
 
@@ -161,9 +182,23 @@ _info() {
 _warn() {
   echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] ${CBYellow}[ WARN ]${CReset} $@"
 }
+_debug() {
+  echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] ${CBCyan}[ DBUG ]${CReset} $@"
+}
 _trace() {
   echo -e "[$(date '+%Y-%m-%d %H:%M:%S')] ${CBPurple}[ TRAC ]${CReset} $@"
 }
 _welcometo() {
   _info "${CBWhite}Welcome to ${CReset}${CBGreen}${@}${CReset}${CBWhite}!${CReset}"
+}
+
+_add_s() {
+  local -n "_input"="$1"
+  if [[ "$_input" =~ ^[+-]?[0-9]+$ ]]; then
+    [[ "$_input" -gt 1 ]] && echo s
+    return
+  else
+    [[ "${#_input[@]}" -gt 1 ]] && echo s
+    return
+  fi
 }

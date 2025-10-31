@@ -121,7 +121,7 @@ ijson_parse_to() {
     #local debug=true
 
     # Set parse attempt was implemented
-    JSON_EVER_PARSED=1
+    IJSON_EVER_PARSED=1
 
     # Start read LINE loop from input pipe.
     # Read line by line from pipe.
@@ -173,12 +173,12 @@ ijson_parse_to() {
             if [[ $parent_pos -ne -1 ]]; then
               # Parent token can't be an object
               if [[ ${jt_type[$parent_pos]} == "o" ]]; then
-                JSON_LINE_ERROR=$line_ind
+                IJSON_LINE_ERROR=$line_ind
                 return $IJSON_EXIT_ERROR_INVAL
               # If parent element is a string, than it size must be no more than 1,
               # otherwise it means, that probably comma is missing
               elif [[ ${jt_type[$parent_pos]} == "s" && ${jt_size[$parent_pos]} -gt 0 ]]; then
-                JSON_LINE_ERROR=$line_ind
+                IJSON_LINE_ERROR=$line_ind
                 return $IJSON_EXIT_ERROR_INVAL
               fi
               jt_size[$parent_pos]=$((${jt_size[$parent_pos]} + 1))
@@ -201,7 +201,7 @@ ijson_parse_to() {
             if [[ $stack_depth -eq 0 ]]; then
               #echo "ERROR }1"
               [[ $debug == true ]] && echo "DEBUG: PJFP: error in line $line_ind: [{ more than }]" 1>&2
-              JSON_LINE_ERROR=$line_ind
+              IJSON_LINE_ERROR=$line_ind
               return $IJSON_EXIT_ERROR_PART
             fi
 
@@ -209,7 +209,7 @@ ijson_parse_to() {
             parent_pos=${jt_parent[$sup_start]}
 
             if [[ "${jt_type[$sup_start]}" != "$type" ]]; then
-              JSON_LINE_ERROR=$line_ind
+              IJSON_LINE_ERROR=$line_ind
               return $IJSON_EXIT_ERROR_PART
             fi
 
@@ -232,7 +232,7 @@ ijson_parse_to() {
           # Start of multiline comment block
           elif [[ "$ch" == "/" ]]; then
             if ! read -r -n1 ch; then
-              JSON_LINE_ERROR=$line_ind
+              IJSON_LINE_ERROR=$line_ind
               return $IJSON_EXIT_ERROR_INVAL
             fi
 
@@ -247,7 +247,7 @@ ijson_parse_to() {
             else
               # Unexpected char
               [[ $debug == true ]] && echo "DEBUG: PJFP: error in line $line_ind: unexpected char for comment /" 1>&2
-              JSON_LINE_ERROR=$line_ind
+              IJSON_LINE_ERROR=$line_ind
               return $IJSON_EXIT_ERROR_INVAL
             fi
           # Quote: start of string
@@ -257,7 +257,7 @@ ijson_parse_to() {
             # If parent element is a string, than it size must be no more than 1,
             # otherwise it means, that probably comma is missing
             if [[ $parent_pos -ne -1 && ${jt_type[$parent_pos]} == "s" && ${jt_size[$parent_pos]} -gt 0 ]]; then
-              JSON_LINE_ERROR=$line_ind
+              IJSON_LINE_ERROR=$line_ind
               return $IJSON_EXIT_ERROR_PART
             fi
 
@@ -266,7 +266,7 @@ ijson_parse_to() {
             local retval=$?
             local val="$read_string_res"
             if [[ $retval -ne $IJSON_EXIT_OK ]]; then
-              JSON_LINE_ERROR=$line_ind
+              IJSON_LINE_ERROR=$line_ind
               return $retval
             fi
             #echo "string=$val" 1>&2
@@ -302,7 +302,7 @@ ijson_parse_to() {
             if [[ $parent_pos -ne -1 ]]; then
               if [[ ${jt_type[$parent_pos]} == "o" ||
                 ${jt_type[$parent_pos]} == "s" && ${jt_size[$parent_pos]} -ne 0 ]]; then
-                JSON_LINE_ERROR=$line_ind
+                IJSON_LINE_ERROR=$line_ind
                 return $IJSON_EXIT_ERROR_INVAL
               fi
             fi
@@ -336,7 +336,7 @@ ijson_parse_to() {
 
           else
             # Unexpected char
-            JSON_LINE_ERROR=$line_ind
+            IJSON_LINE_ERROR=$line_ind
             return $IJSON_EXIT_ERROR_INVAL
           fi
         done
@@ -356,14 +356,14 @@ ijson_parse_to() {
 
     # Error if comments block is not closed
     if [[ "$skip_comments" != "0" ]]; then
-      JSON_LINE_ERROR=$line_ind
+      IJSON_LINE_ERROR=$line_ind
       return $IJSON_EXIT_ERROR_PART
     fi
 
     # Verify that all opening brackets {[
     # have corresponding closing brackets }].
     if [[ ${#t_stack[@]} -gt 0 ]]; then
-      JSON_LINE_ERROR=$line_ind
+      IJSON_LINE_ERROR=$line_ind
       return $IJSON_EXIT_ERROR_PART
     fi
 
@@ -617,4 +617,41 @@ ijson_parse_to() {
     OUTSCRIPT+="declare -g ${_a} ${VARNAME}_${vardata};"
   done
   eval "$OUTSCRIPT"
+}
+
+ijson.string() {
+  awk '
+  BEGIN {
+    RS="\x01" 
+    if (getline str < "/dev/stdin" <= 0) {
+      exit
+    }
+    
+    RS="\n"
+    ORS=""
+
+    len = length(str)
+    for (i = 1; i <= len; i++) {
+      c = substr(str, i, 1)
+      val = ord(c)
+
+      if (c == "\\") { print "\\\\" }
+      else if (c == "\"") { print "\\\"" }
+
+      else if (val == 8)  { print "\\b" }
+      else if (val == 9)  { print "\\t" }
+      else if (val == 10) { print "\\n" }
+      else if (val == 12) { print "\\f" }
+      else if (val == 13) { print "\\r" }
+
+      else if (val >= 0 && val <= 31) {
+        printf "\\u%04X", val
+      }
+      
+      else {
+        print c
+      }
+    }
+  }
+  '
 }
