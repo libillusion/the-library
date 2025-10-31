@@ -4,8 +4,14 @@ delulu.request() {
   local _target="/tmp/tmp.$(uuidgen)" DELULU_SOCKET="${DELULU_SOCKET:-/tmp/delulu.sock}"
   mkfifo "$_target"
 
+  local cmd="${1// /_}"
+  shift
+  local key="${1// /_}"
+  shift
+  local value="${1// /_}"
+
   #    authkey                 clientpipe *cmd, key, value
-  echo "AUTH=${DELULU_AUTHKEY} ${_target} $@" >"$DELULU_SOCKET"
+  echo "AUTH=${DELULU_AUTHKEY} ${_target} $cmd $key $value" >"$DELULU_SOCKET"
   read -r _DELULU_RESPONSE_RAW <"$_target"
   case "$_DELULU_RESPONSE_RAW" in
   "ok:"*)
