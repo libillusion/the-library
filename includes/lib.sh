@@ -168,6 +168,7 @@ Available options:
   -a | --address  <addr>        | The address of the server. (default: 0.0.0.0:8080)
   -b | --backend  <binary>      | Specify backend (socat, ncat) (default: socat)
   -l | --plugin   <path>        | Add a plugin
+       --nologo                 | Disables logo printing
 
 Server Routing:
   --option="[path]->[function]"
@@ -194,7 +195,6 @@ function illusion.server() {
 
   # create worker routes
   local IROUTE IHOST IPORT
-  illusion.logo
   illusion.selfcheck
 
   while getopts ":vf:" opt; do
@@ -230,6 +230,10 @@ function illusion.server() {
         illusion.routes.add "$ROUTE_FROM" "$ROUTE_TO" "POST"
         shift
         ;;
+      --nologo)
+        ILLUSION_NOLOGO=1
+        shift
+        ;;
       *)
         echo "Invalid argument: $i"
         illusion.init::help
@@ -238,6 +242,10 @@ function illusion.server() {
       esac
     done
   done
+
+  if [[ "$ILLUSION_NOLOGO" != "1" ]]; then
+    illusion.logo
+  fi
 
   # check if plugins is enabled
   if [[ "${#ILLUSION_PLUGINS}" -gt "0" ]] && ! $ILLUSION_ENABLE_PLUGINS; then
