@@ -260,7 +260,6 @@ worker.process_request_data() {
   local -A REQ_QUERIES
   local -A REQ_RESPONSE_HEADERS
   local -A REQ_COOKIES
-  local -A REQ_SESSION
   local -A REQ_COOKIE_TO_SEND
 
   # ijson REQ_POST_DATA

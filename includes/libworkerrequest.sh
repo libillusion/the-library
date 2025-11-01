@@ -26,6 +26,11 @@ req.query.get() { [[ -n "$1" ]] && printf '%s\n' "${REQ_QUERIES["$1"]}"; }
 req.query.get_to() { [[ -n "$2" ]] && "$2"="${REQ_QUERIES["$1"]}"; }
 
 req.response.get() { cat /proc/self/fd/299; }
+req.response.get_to() {
+  [ -z "$1" ] && return 1
+  local -n "_output"="$1"
+  _output="$(cat /proc/self/fd/299)"
+}
 
 # INTERNALS
 function req.response._openfd() {

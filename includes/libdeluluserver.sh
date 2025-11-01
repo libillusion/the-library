@@ -1,12 +1,15 @@
 # The Delusional Database
 delulu.instance() {
   DELULU_SOCKET="${DELULU_SOCKET:-/tmp/delulu.sock}"
+  DELULU_PID="$$"
   rm -f "$DELULU_SOCKET"
   mkfifo "$DELULU_SOCKET"
   echo "Started Delulu Server (listening on $DELULU_SOCKET)"
 
   send() {
-    printf '%s\n' "$1" >"$client_pipe"
+    [[ -p "$client_pipe" ]] && printf '%s\n' "$1" >"$client_pipe" || {
+      [[ -p "$cmd" ]] && printf 'auth: %s\n' "$1" >"$cmd"
+    }
     #echo "$1"
   }
 
@@ -19,6 +22,7 @@ delulu.instance() {
   }
 
   if [[ "$DELULU_AUTHKEY" == "null" ]] || [[ -z "$DELULU_AUTHKEY" ]]; then
+    echo "Waiting for initialization request (manual mode)..."
     # wait for initialization
     while read -r client_pipe cmd value <"$DELULU_SOCKET"; do
       case "$cmd" in
@@ -27,15 +31,23 @@ delulu.instance() {
         ;;
       init)
         DELULU_AUTHKEY="$value"
+        if [[ -z "$DELULU_AUTHKEY" ]]; then
+          err "authkey is empty"
+          continue
+        fi
         send "auth: init ok"
         break
         ;;
+      *PING)
+        ok "PONG"
+        ;;
       *)
         err "invalid operation"
-        echo "client-exec: $cmd $value"
+        echo "recv: $client_pipe $cmd $value"
         ;;
       esac
     done
+    echo "Initialization complete."
   fi
 
   declare -A DB # very good
@@ -43,7 +55,12 @@ delulu.instance() {
     auth_segment client_pipe \
     cmd key value <"$DELULU_SOCKET"; do
 
-    echo "Received operation $cmd"
+    if [[ "$cmd" == "PING" ]]; then
+      ok "PONG"
+      continue
+    fi
+
+    echo "recv_cmd: $cmd"
 
     if [[ "$auth_segment" != "AUTH=$DELULU_AUTHKEY" ]]; then
       echo "err: auth failed" >"$client_pipe"
@@ -85,9 +102,8 @@ delulu.instance() {
       ok "${#DB[@]}"
       ;;
     MEMORY)
-      ok "$(awk '{ printf "%.2f\n", $2 * 4096 / 1024 / 1024 }' /proc/self/statm)MB"
+      ok "$(awk '{ printf "%.2f\n", $2 * 4096 / 1024 / 1024 }' /proc/${DELULU_PID}/statm)MB"
       ;;
-
     *)
       echo hi
       err "invalid operation"

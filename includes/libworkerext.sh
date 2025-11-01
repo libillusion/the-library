@@ -42,18 +42,16 @@ function @respond {
     ;;
   disposition-inline | file)
     @set_header "content-disposition" "inline; filename=${3:-"$(uuidgen).dat"}"
-    IS_DISPOSITION=true
     ;;
   disposition-attachment | download)
     @set_header "content-disposition" "attachment; filename=${3:-"$(uuidgen).dat"}"
-    IS_DISPOSITION=true
     ;;
   *)
     @set_header "content-type" "$2"
     ;;
   esac
 
-  if "$IS_DISPOSITION" || read -t 0; then
+  if read -t 0; then
     # has content
     cat
   else
